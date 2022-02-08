@@ -1,0 +1,216 @@
+---
+title: "Comparing Hector integrated vs non integrated DOECLIM"
+output:
+  html_notebook:
+    toc: yes
+    toc_depth: '4'
+    toc_float: yes
+    number_sections: true
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+# Set Up 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = FALSE, message = FALSE, warning = FALSE)
+# see https://bookdown.org/yihui/rmarkdown-cookbook/ for more info on markdowns
+```
+
+```{r}
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+BASE_DIR <- here::here()
+
+theme_set(theme_bw())
+
+
+data <- rbind(read.csv("~/Desktop/hector_doeclim.csv", stringsAsFactors = FALSE), 
+              read.csv("~/Desktop/hector_land-tracking.csv", stringsAsFactors = FALSE)) %>%  
+    dplyr::filter(grepl(pattern = "ssp", x = scenario))
+```
+
+## Objective 
+
+How much does Hector output change by when DOECLIM is integrated vs. fully integrated. 
+
+# Compare Hector Outputs
+
+## Temperature 
+
+```{r}
+data %>% 
+    dplyr::filter(variable %in% c("Tgav", "Tgav_land", "Tgav_ocean_air", "Tgav_ocean_ST")) %>% 
+    ggplot(aes(year, value, color = version, linetype = version, groupby = interaction(variable, version, scenario))) + 
+    geom_line() + 
+    facet_wrap("variable", scales = "free") + 
+    theme_bw() + 
+    theme(legend.position = "bottom") + 
+    labs(y = NULL, x = NULL)
+```
+
+
+```{r}
+data %>% 
+    dplyr::filter(variable %in% c("Temp_HL", "Temp_LL")) %>% 
+    ggplot(aes(year, value, color = version, linetype = version, groupby = interaction(variable, version, scenario))) + 
+    geom_line() + 
+    facet_wrap("variable", scales = "free") + 
+    theme_bw() + 
+    theme(legend.position = "bottom") + 
+    labs(y = NULL, x = NULL)
+```
+
+Not surprising that we see a large change here since we are swtiching from tas to tos data so the fact that the HL and LL temp is now lower is not surprising. 
+
+
+## Carbon Fluxes 
+
+```{r}
+data %>% 
+    dplyr::filter(variable %in% c("atm_ocean_flux", "atm_ocean_flux_LL", "atm_ocean_flux_HL")) %>% 
+    ggplot(aes(year, value, color = version, linetype = version, groupby = interaction(variable, version, scenario))) + 
+    geom_line() + 
+    facet_wrap("variable", scales = "free") + 
+    theme_bw() + 
+    theme(legend.position = "bottom") + 
+    labs(y = NULL, x = NULL)
+```
+
+
+## Ocean Vars 
+
+```{r}
+data %>% 
+    dplyr::filter(variable %in% c("pH_HL", "pH_LL", "CO3_HL", "CO3_LL", "PCO2_HL", "PCO2_LL")) %>% 
+    ggplot(aes(year, value, color = version, linetype = version, groupby = interaction(variable, version, scenario))) + 
+    geom_line() + 
+    facet_wrap("variable", scales = "free") + 
+    theme_bw() + 
+    theme(legend.position = "bottom") + 
+    labs(y = NULL, x = NULL)
+```
+
+```{r}
+data %>% 
+    dplyr::filter(variable %in% c("carbon_HL", "carbon_LL", "carbon_IO", "carbon_DO")) %>% 
+    ggplot(aes(year, value, color = version, linetype = version, groupby = interaction(variable, version, scenario))) + 
+    geom_line() + 
+    facet_wrap("variable", scales = "free") + 
+    theme_bw() + 
+    theme(legend.position = "bottom") + 
+    labs(y = NULL, x = NULL)
+```
+
+## Terrestiral Carbon 
+
+```{r}
+data %>% 
+    dplyr::filter(variable %in% c("npp")) %>% 
+    ggplot(aes(year, value, color = version, linetype = version, groupby = interaction(variable, version, scenario))) + 
+    geom_line() + 
+    facet_wrap("variable", scales = "free") + 
+    theme_bw() + 
+    theme(legend.position = "bottom") + 
+    labs(y = NULL, x = NULL)
+```
+
+# Percent Difference 
+
+```{r}
+data %>% 
+    tidyr::spread(version, value) %>% 
+    dplyr::mutate(percent = 100 * (`full doeclim integration` - `land-tracking`)/ `land-tracking`) -> 
+    percent_change_data 
+
+percent_change_data %>% 
+    dplyr::group_by(variable, scenario) %>%  
+    dplyr::summarise(value = mean(percent)) %>% 
+    tidyr::spread(scenario, value) %>% 
+    knitr::kable(digits = 3, caption = "(doeclim - land tracking) / land tracking")
+```
+
+## Temperature
+
+```{r}
+percent_change_data %>%
+    dplyr::filter(variable %in% c("Tgav", "Tgav_land", "Tgav_ocean_air", "Tgav_ocean_ST")) %>% 
+    ggplot(aes(year, percent, color = scenario)) + 
+    geom_hline(yintercept = 10, color = "grey", size = 1) + 
+    geom_hline(yintercept = -10, color = "grey", size = 1) + 
+    geom_line() + 
+    coord_cartesian(ylim = c(-50, 50)) + 
+    facet_wrap("variable") + 
+    labs(caption = "grey lines at -10 & 10%") + 
+    labs(x = NULL, y = "%")
+```
+
+```{r}
+percent_change_data %>%
+    dplyr::filter(variable %in% c("Temp_HL", "Temp_LL")) %>% 
+    ggplot(aes(year, percent, color = scenario)) + 
+    geom_hline(yintercept = 10, color = "grey", size = 1) + 
+    geom_hline(yintercept = -10, color = "grey", size = 1) + 
+    geom_line() + 
+    facet_wrap("variable") + 
+    labs(caption = "grey lines at -10 & 10%") + 
+    labs(x = NULL, y = "%")
+```
+
+## Carbon Fluxes
+
+```{r}
+percent_change_data %>%
+    dplyr::filter(variable %in% c("atm_ocean_flux", "atm_ocean_flux_LL", "atm_ocean_flux_HL")) %>% 
+    ggplot(aes(year, percent, color = scenario)) + 
+    geom_hline(yintercept = 10, color = "grey", size = 1) + 
+    geom_hline(yintercept = -10, color = "grey", size = 1) + 
+    geom_line() + 
+    facet_wrap("variable") + 
+    coord_cartesian(ylim = c(-75, 75)) +
+    labs(caption = "grey lines at -10 & 10%") + 
+    labs(x = NULL, y = "%")
+```
+
+## Ocean Vars
+
+```{r}
+percent_change_data %>%
+    dplyr::filter(variable %in% c("pH_HL", "pH_LL", "CO3_HL",
+                                  "CO3_LL", "PCO2_HL", "PCO2_LL")) %>% 
+    ggplot(aes(year, percent, color = scenario)) + 
+    geom_hline(yintercept = 10, color = "grey", size = 1) + 
+    geom_hline(yintercept = -10, color = "grey", size = 1) + 
+    geom_line() + 
+    facet_wrap("variable") + 
+    labs(caption = "grey lines at -10 & 10%") + 
+    labs(x = NULL, y = "%")
+```
+
+```{r}
+percent_change_data %>%
+    dplyr::filter(variable %in% c("carbon_HL", "carbon_LL", "carbon_IO", "carbon_DO")) %>% 
+    ggplot(aes(year, percent, color = scenario)) + 
+    geom_hline(yintercept = 10, color = "grey", size = 1) + 
+    geom_hline(yintercept = -10, color = "grey", size = 1) + 
+    geom_line() + 
+    facet_wrap("variable") + 
+    labs(caption = "grey lines at -10 & 10%") + 
+    labs(x = NULL, y = "%")
+```
+
+
+## Terrestiral Carbon 
+
+```{r}
+percent_change_data %>%
+    dplyr::filter(variable %in% c("npp")) %>% 
+    ggplot(aes(year, percent, color = scenario)) + 
+    geom_hline(yintercept = 10, color = "grey", size = 1) + 
+    geom_hline(yintercept = -10, color = "grey", size = 1) + 
+    geom_line() + 
+    facet_wrap("variable") + 
+    labs(caption = "grey lines at -10 & 10%") + 
+    labs(x = NULL, y = "%")
+```
